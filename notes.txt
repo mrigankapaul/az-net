@@ -1,0 +1,130 @@
+Each Cloud Service has a DNS name <cloudservice>.cloudapp.net 
+A DNS name is updated when the IP Changes
+VIP is just a PIP(Public IP) assigned to a loadbalancer rather than a VM (actual VM)
+It is possible to reserve static VIP to keep even if the service is de-provisioned or provisioned
+
+The cloud service VIP us used to provide access to VM services through endpoints
+Endpoints enable a port on the VIP to be mapped to a port for VM or a group of VMs
+
+Every VM in a cloud service could communicate to all other VMs via DIP in the same cloud service but not outside cloud service  except via VIPs or endpoints
+
+There is no way to specify IP from VMs just using cloud service networking
+
+Name resolution in cloud service
+    Azure DNS is exclusively used for native cloud service name resolution
+    provides a dynamic dns capability enabling all VMs in the same cloud service to perform name resolution on all other VMs in the same cloud service
+    Internet DNS resolution is also provided.
+
+There are charges for egress (unless using an unmetered Express Route Connection) from an Azure Data Center
+
+/////
+
+Virtual Netwrok 
+    construct created in azure
+    lives within a subscription and region
+    has one or more ip ranges associated with it
+    DNS servers can be configured that will be configured as part of DHCP offer
+    subnets are created to break up the network range
+    by default all machines within a virtual network can communicate
+    4096 private ips per virtual network
+    Azure DNS can be used which provide the name resolution for alll services within the virtual network
+    DNS server can be explicitly configured such as domain controller
+    VMs in  Azure always get their IP configuration via DHCP and never static configuration
+    VMs must be restarted to get updated dns configuration
+    when a vm is reprovisioned to the fabric it gets a new VM-nic and possibly a new IP
+    static ips can be assigned via AZ fabric using pwsh or portal
+    create a separate subnet as a pool for static ip assignment
+
+Traffic flow within a virtual network
+    By default
+        VM in a VNET can communicate with every other VM in every subnet in the same virtual network
+        Anything on Internet (Outbound)
+        Anything connected via VPN or express route
+
+Network security groups
+    Enables rules to be created then assigned to network security group
+    NSG can be applied to a subnet or VMs
+    When applied to subnet it is still enforced at the vmNic. Its not an edge device.
+    Rules are based on 5-Tuple and have priority and action(allow or deny)
+        Source IP Address(Can be range)
+        Source Port
+        Destinate IP Address
+        Desrtination Port
+        Protocol (TCP, UDP, or *)
+
+        Specifial Tags
+            VIRTUAL_NETWORK - Any address space of teh virtual network and also VNETs it is connected to (On-Premise network)
+            AZURE_LOADBALANCER - az infrastructure LB
+            INTERNET - IP Address space external to Virtual Network
+    1 NSG can be applied to all subnets
+    
+Network Interface    
+    By Default - a VM has a single NIC
+    Depending on the size of the VM multiple NIC may be allowed
+    NIC must be added at the time of provisioning
+    Cannot mix single NIC and multiple NIC vms in the same availability set
+    VM NICs can be in the same subnet or different subnet(Designed for virtual appliance)
+
+User Defined Routes
+    Enables Modification default routing packets
+    Example - adding a firewall/IDS appliance that all Traffic should flow through
+
+
+    Non - Internet routable IP ranges
+        10.0.0.0 - 10.255.255.255 (10/8 prefix)
+        172.16.0.0 - 172.31.255.255 (172.16/12 prefix)
+        192.168.0.0 - 192.168.255.255 (192.168 prefix)
+
+// Enabling External access
+ARM 
+    - Private IP - Assigned to VM, Internal Load Balanacer and application gateway
+    - Public IP - Communication from Internet
+        - Assigned to Internet facing loadbalancer, VPN gateway and application gateways
+    - Can be static or dynamic
+    - Public IP - resource within a specific region
+    - DNS - <DNS Label>.<region>.cloudapp.azure.com
+Load Balancers -
+    Provides distribution of requests to multiple targets. This enables ability to scale and resiliency from service failure.
+    Internet Facing Load Balancers 
+        - Balances incoming traffic from the internet to VMs in Azure
+    Internal Load Balanacer
+        - Balances traffic between VMs in a virtual network ( or connected network)
+    Works at Layer 4 
+        - 2 types of services
+            Hash based distribution (5 Tuples)
+            Port forwarding
+LoadBalancer stickiness
+    - By default uses 5 Tuples
+    - Can also use 2 or 3 Tuples (Source and Destination IP)
+        - Source IP (2 Tuple) - source and destination ip only
+        - source ip protocol (3 Tuples) - As above but also protocol
+
+    // Need to create PWSH script for loadbalancer
+Traffic Manager 
+    Requirements to balance requests based on proximity to the requesting user, round-robin or failure
+    Traffic Manager provides a DNS based distribution service for incoming DNS requests
+    Targets can be VMs in Azure, PaaS, other traffic manager, and on premise services
+Hybrid Cloud Requirements
+    Cross-cloud management 
+    Single provisioning system
+    Network Connectivity
+Routing between Azure and on-premise networks
+    - Must use unique IP address ranges
+    - Not possible to route between networks that uses the same IP scheme
+        - Includes on-premise to AZ
+        - Az VN to Az VN
+    VMs cannot moved between VN without deleting and recreating
+    Azure Site to Site VPN provides connectivity between a virtual network and an on-premise network or another virtual network.
+    To on-premises connects over the internet
+    Uses IPSec/IKE to encrypt traffic 
+    VPN Gateway created in Az as automatically created pair of VMs(hidden) in active-passive configuration
+    On premises compatible gateway device requirement
+VPN Gateway Subnet
+    To enable site-to-site VPN -> You need a Gateway -> and this needs a gateway subnet
+    can use /29 but recommended to use /27 to enable support for S2S and express route gateway co-existence
+    Common when creating subnets in new VNet is to leave an address space at the start to use for the gateway
+    Do not use NSG for gateway subnet
+    The name has to be GatewaySubnet
+Types of VPN Gateway
+    
+
